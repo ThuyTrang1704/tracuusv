@@ -147,40 +147,44 @@
   }
 
   async function loadStudents() {
-    const msg = document.getElementById("message");
+  const msg = document.getElementById("message");
 
-    try {
-      const res = await fetch(sheetUrl);
+  try {
+    const res = await fetch(sheetUrl);
 
-      if (!res.ok) {
-        throw new Error("HTTP ERROR: " + res.status);
-      }
-
-      const text = await res.text();
-      const rows = parseCSV(text);
-
-      // Sheet của bạn: cột A = STT, B = MSSV, C = Họ tên, D = Lớp, F = SĐT
-      students = rows
-        .map(r => ({
-          mssv: (r[1] || "").trim(),
-          name: (r[2] || "").trim(),
-          class: (r[3] || "").trim(),
-          date:(r[4] || "").trim(),
-          phone: (r[5] || "").trim()
-        }))
-        .filter(s => s.mssv !== "" && s.name !== "");
-
-      msg.innerHTML = `✅ Load thành công ${students.length} sinh viên`;
-      msg.classList.add("success");
-
-      console.log("Danh sách SV:", students);
-
-    } catch (err) {
-      console.log("LOAD ERROR:", err);
-      msg.innerHTML = "❌ Không load được dữ liệu Google Sheet! (hãy chạy bằng Live Server)";
-      msg.classList.remove("success");
+    if (!res.ok) {
+      throw new Error("HTTP ERROR: " + res.status);
     }
+
+    const text = await res.text();
+    const rows = parseCSV(text);
+
+    // BỎ DÒNG TIÊU ĐỀ
+    rows.shift();
+
+    // DEBUG: xem dữ liệu thực tế
+    console.log("Dòng đầu tiên:", rows[0]);
+
+    // A=STT, B=MSSV, C=Họ tên, D=Lớp, E=Ngày Sinh, F=SĐT
+    students = rows
+      .map(r => ({
+        mssv: (r[1] || "").trim(),
+        name: (r[2] || "").trim(),
+        class: (r[3] || "").trim(),
+        date: (r[4] || "").trim(),
+        phone: (r[5] || "").trim()
+      }))
+      .filter(s => s.mssv !== "" && s.name !== "");
+
+    msg.innerHTML = `✅ Load thành công ${students.length} sinh viên`;
+    msg.classList.add("success");
+
+  } catch (err) {
+    console.log("LOAD ERROR:", err);
+    msg.innerHTML = "❌ Không load được dữ liệu Google Sheet!";
+    msg.classList.remove("success");
   }
+}
 
   function renderResults(results) {
     const body = document.getElementById("resultBody");
@@ -223,6 +227,7 @@
       s.mssv.toLowerCase().includes(keyword) ||
       s.name.toLowerCase().includes(keyword) ||
       s.class.toLowerCase().includes(keyword) ||
+      s.date.toLowerCase().includes(keyword) ||
       s.phone.toLowerCase().includes(keyword)
     );
 
