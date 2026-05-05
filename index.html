@@ -9,13 +9,16 @@
     body {
       font-family: Arial, sans-serif;
       background: #f2f2f2;
+      margin: 0;
+      padding: 0;
     }
 
     .container {
-      width: 900px;
-      margin: 50px auto;
+      width: 95%;
+      max-width: 1000px;
+      margin: 30px auto;
       background: white;
-      padding: 25px;
+      padding: 20px;
       border-radius: 12px;
       box-shadow: 0px 0px 12px rgba(0,0,0,0.2);
     }
@@ -23,6 +26,7 @@
     h2 {
       text-align: center;
       margin-bottom: 20px;
+      font-size: 22px;
     }
 
     input {
@@ -32,6 +36,7 @@
       border-radius: 8px;
       border: 1px solid #ccc;
       outline: none;
+      box-sizing: border-box;
     }
 
     button {
@@ -50,31 +55,62 @@
       background: #0056b3;
     }
 
+    .msg {
+      margin-top: 15px;
+      font-weight: bold;
+      color: red;
+      font-size: 14px;
+    }
+
+    .success {
+      color: green;
+    }
+
+    /* Bọc table để mobile scroll ngang */
+    .table-wrapper {
+      overflow-x: auto;
+      margin-top: 20px;
+    }
+
     table {
       width: 100%;
+      min-width: 650px; /* để tránh table bị bóp quá nhỏ */
       border-collapse: collapse;
-      margin-top: 20px;
     }
 
     th, td {
       border: 1px solid #ccc;
       padding: 10px;
       text-align: left;
+      font-size: 14px;
     }
 
     th {
       background: #007bff;
       color: white;
+      font-size: 15px;
     }
 
-    .msg {
-      margin-top: 15px;
-      font-weight: bold;
-      color: red;
-    }
+    /* Responsive cho điện thoại */
+    @media (max-width: 600px) {
+      h2 {
+        font-size: 18px;
+      }
 
-    .success {
-      color: green;
+      input {
+        font-size: 14px;
+        padding: 12px;
+      }
+
+      button {
+        font-size: 14px;
+        padding: 12px;
+      }
+
+      th, td {
+        font-size: 13px;
+        padding: 8px;
+      }
     }
   </style>
 </head>
@@ -84,23 +120,25 @@
 <div class="container">
   <h2>Tra cứu thông tin sinh viên CNTT</h2>
 
-  <input type="text" id="searchInput" placeholder="Nhập MSSV / Họ tên / Lớp / SĐT...">
+  <input type="text" id="searchInput" placeholder="Nhập MSSV / Họ tên / Lớp / Ngày sinh / SĐT...">
   <button onclick="searchStudent()">Tìm kiếm</button>
 
   <div id="message" class="msg"></div>
 
-  <table id="resultTable" style="display:none;">
-    <thead>
-      <tr>
-        <th>MSSV</th>
-        <th>Họ và tên</th>
-        <th>Lớp</th>
-        <th>Ngày Sinh</th>
-        <th>SĐT</th>
-      </tr>
-    </thead>
-    <tbody id="resultBody"></tbody>
-  </table>
+  <div class="table-wrapper">
+    <table id="resultTable" style="display:none;">
+      <thead>
+        <tr>
+          <th>MSSV</th>
+          <th>Họ và tên</th>
+          <th>Lớp</th>
+          <th>Ngày Sinh</th>
+          <th>SĐT</th>
+        </tr>
+      </thead>
+      <tbody id="resultBody"></tbody>
+    </table>
+  </div>
 </div>
 
 <script>
@@ -108,14 +146,13 @@
 
   let students = [];
 
-  // Parse CSV chuẩn (hỗ trợ dấu phẩy + dấu nháy)
   function parseCSV(text) {
     const rows = [];
     let row = [];
     let current = "";
     let insideQuotes = false;
 
-    text = text.replace(/\r/g, ""); // FIX \r\n
+    text = text.replace(/\r/g, "");
 
     for (let i = 0; i < text.length; i++) {
       const char = text[i];
@@ -146,45 +183,54 @@
     return rows;
   }
 
-  async function loadStudents() {
-  const msg = document.getElementById("message");
-
-  try {
-    const res = await fetch(sheetUrl);
-
-    if (!res.ok) {
-      throw new Error("HTTP ERROR: " + res.status);
-    }
-
-    const text = await res.text();
-    const rows = parseCSV(text);
-
-    // BỎ DÒNG TIÊU ĐỀ
-    rows.shift();
-
-    // DEBUG: xem dữ liệu thực tế
-    console.log("Dòng đầu tiên:", rows[0]);
-
-    // A=STT, B=MSSV, C=Họ tên, D=Lớp, E=Ngày Sinh, F=SĐT
-    students = rows
-      .map(r => ({
-        mssv: (r[1] || "").trim(),
-        name: (r[2] || "").trim(),
-        class: (r[3] || "").trim(),
-        date: (r[4] || "").trim(),
-        phone: (r[5] || "").trim()
-      }))
-      .filter(s => s.mssv !== "" && s.name !== "");
-
-    msg.innerHTML = `✅ Load thành công ${students.length} sinh viên`;
-    msg.classList.add("success");
-
-  } catch (err) {
-    console.log("LOAD ERROR:", err);
-    msg.innerHTML = "❌ Không load được dữ liệu Google Sheet!";
-    msg.classList.remove("success");
+  function excelDateToVNDate(serial) {
+    const excelStart = new Date(1899, 11, 30);
+    const date = new Date(excelStart.getTime() + serial * 86400000);
+    return date.toLocaleDateString("vi-VN");
   }
-}
+
+  async function loadStudents() {
+    const msg = document.getElementById("message");
+
+    try {
+      const res = await fetch(sheetUrl);
+
+      if (!res.ok) {
+        throw new Error("HTTP ERROR: " + res.status);
+      }
+
+      const text = await res.text();
+      const rows = parseCSV(text);
+
+      rows.shift(); // bỏ tiêu đề
+
+      students = rows.map(r => {
+        let rawDate = (r[4] || "").trim();
+
+        if (rawDate === "#REF!") rawDate = "";
+
+        if (rawDate !== "" && !isNaN(rawDate)) {
+          rawDate = excelDateToVNDate(Number(rawDate));
+        }
+
+        return {
+          mssv: (r[1] || "").trim(),
+          name: (r[2] || "").trim(),
+          class: (r[3] || "").trim(),
+          date: rawDate,
+          phone: (r[5] || "").trim()
+        };
+      }).filter(s => s.mssv !== "" && s.name !== "");
+
+      msg.innerHTML = `✅ Load thành công ${students.length} sinh viên`;
+      msg.classList.add("success");
+
+    } catch (err) {
+      console.log("LOAD ERROR:", err);
+      msg.innerHTML = "❌ Không load được dữ liệu Google Sheet!";
+      msg.classList.remove("success");
+    }
+  }
 
   function renderResults(results) {
     const body = document.getElementById("resultBody");
@@ -217,7 +263,7 @@
     const msg = document.getElementById("message");
 
     if (!keyword) {
-      msg.innerHTML = "⚠️ Nhập MSSV / Họ tên / Lớp / SĐT để tìm!";
+      msg.innerHTML = "⚠️ Nhập MSSV / Họ tên / Lớp / Ngày sinh / SĐT để tìm!";
       msg.classList.remove("success");
       renderResults([]);
       return;
@@ -242,7 +288,6 @@
     renderResults(results);
   }
 
-  // Search realtime khi gõ
   document.getElementById("searchInput").addEventListener("input", searchStudent);
 
   loadStudents();
