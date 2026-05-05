@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tra cứu sinh viên CNTT</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+    }
+
+    .container {
+      width: 900px;
+      margin: 50px auto;
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0px 0px 12px rgba(0,0,0,0.2);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      outline: none;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 15px;
+      background: #007bff;
+      border: none;
+      color: white;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 10px;
+      text-align: left;
+    }
+
+    th {
+      background: #007bff;
+      color: white;
+    }
+
+    .msg {
+      margin-top: 15px;
+      font-weight: bold;
+      color: red;
+    }
+
+    .success {
+      color: green;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+  <h2>Tra cứu thông tin sinh viên CNTT</h2>
+
+  <input type="text" id="searchInput" placeholder="Nhập MSSV / Họ tên / Lớp / SĐT...">
+  <button onclick="searchStudent()">Tìm kiếm</button>
+
+  <div id="message" class="msg"></div>
+
+  <table id="resultTable" style="display:none;">
+    <thead>
+      <tr>
+        <th>MSSV</th>
+        <th>Họ và tên</th>
+        <th>Lớp</th>
+        <th>SĐT</th>
+      </tr>
+    </thead>
+    <tbody id="resultBody"></tbody>
+  </table>
+</div>
+
+<script>
+  const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR0XAMuOXBJ80SDp7iO6kSKY2FkFyNKHOkPbeZyrDEKWKmXJw7ega7hNw87y6xyhcaPwiOmj3W2VSde/pub?output=csv";
+
+  let students = [];
+
+  // Parse CSV chuẩn (hỗ trợ dấu phẩy + dấu nháy)
+  function parseCSV(text) {
+    const rows = [];
+    let row = [];
+    let current = "";
+    let insideQuotes = false;
+
+    text = text.replace(/\r/g, ""); // FIX \r\n
+
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+
+      if (char === '"' && text[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else if (char === '"') {
+        insideQuotes = !insideQuotes;
+      } else if (char === "," && !insideQuotes) {
+        row.push(current);
+        current = "";
+      } else if (char === "\n" && !insideQuotes) {
+        row.push(current);
+        rows.push(row);
+        row = [];
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+
+    if (current.length > 0) {
+      row.push(current);
+      rows.push(row);
+    }
+
+    return rows;
+  }
+
+  async function loadStudents() {
+    const msg = document.getElementById("message");
+
+    try {
+      const res = await fetch(sheetUrl);
+
+      if (!res.ok) {
+        throw new Error("HTTP ERROR: " + res.status);
+      }
+
+      const text = await res.text();
+      const rows = parseCSV(text);
+
+      // Sheet của bạn: cột A = STT, B = MSSV, C = Họ tên, D = Lớp, F = SĐT
+      students = rows
+        .map(r => ({
+          mssv: (r[1] || "").trim(),
+          name: (r[2] || "").trim(),
+          class: (r[3] || "").trim(),
+          phone: (r[5] || "").trim()
+        }))
+        .filter(s => s.mssv !== "" && s.name !== "");
+
+      msg.innerHTML = `✅ Load thành công ${students.length} sinh viên`;
+      msg.classList.add("success");
+
+      console.log("Danh sách SV:", students);
+
+    } catch (err) {
+      console.log("LOAD ERROR:", err);
+      msg.innerHTML = "❌ Không load được dữ liệu Google Sheet! (hãy chạy bằng Live Server)";
+      msg.classList.remove("success");
+    }
+  }
+
+  function renderResults(results) {
+    const body = document.getElementById("resultBody");
+    const table = document.getElementById("resultTable");
+
+    body.innerHTML = "";
+
+    if (results.length === 0) {
+      table.style.display = "none";
+      return;
+    }
+
+    results.forEach(stu => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${stu.mssv}</td>
+        <td>${stu.name}</td>
+        <td>${stu.class}</td>
+        <td>${stu.phone}</td>
+      `;
+      body.appendChild(tr);
+    });
+
+    table.style.display = "table";
+  }
+
+  function searchStudent() {
+    const keyword = document.getElementById("searchInput").value.trim().toLowerCase();
+    const msg = document.getElementById("message");
+
+    if (!keyword) {
+      msg.innerHTML = "⚠️ Nhập MSSV / Họ tên / Lớp / SĐT để tìm!";
+      msg.classList.remove("success");
+      renderResults([]);
+      return;
+    }
+
+    const results = students.filter(s =>
+      s.mssv.toLowerCase().includes(keyword) ||
+      s.name.toLowerCase().includes(keyword) ||
+      s.class.toLowerCase().includes(keyword) ||
+      s.phone.toLowerCase().includes(keyword)
+    );
+
+    if (results.length === 0) {
+      msg.innerHTML = "❌ Không tìm thấy sinh viên!";
+      msg.classList.remove("success");
+    } else {
+      msg.innerHTML = `✅ Tìm thấy ${results.length} sinh viên`;
+      msg.classList.add("success");
+    }
+
+    renderResults(results);
+  }
+
+  // Search realtime khi gõ
+  document.getElementById("searchInput").addEventListener("input", searchStudent);
+
+  loadStudents();
+</script>
+
+</body>
+</html>
