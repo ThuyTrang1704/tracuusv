@@ -95,6 +95,7 @@
         <th>MSSV</th>
         <th>Họ và tên</th>
         <th>Lớp</th>
+        <th>Ngày Sinh</th>
         <th>SĐT</th>
       </tr>
     </thead>
@@ -164,6 +165,7 @@
           mssv: (r[1] || "").trim(),
           name: (r[2] || "").trim(),
           class: (r[3] || "").trim(),
+          date:(r[4] || "").trim(),
           phone: (r[5] || "").trim()
         }))
         .filter(s => s.mssv !== "" && s.name !== "");
@@ -197,6 +199,7 @@
         <td>${stu.mssv}</td>
         <td>${stu.name}</td>
         <td>${stu.class}</td>
+        <td>${stu.date}</td>
         <td>${stu.phone}</td>
       `;
       body.appendChild(tr);
